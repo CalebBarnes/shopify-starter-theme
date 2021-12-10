@@ -1,5 +1,5 @@
 <!doctype html>
-<html class="antialiased text-gray-700" lang="{{ shop.locale }}">
+<html>
 <head>
   <title>{{ page_title }}</title>
   <meta charset="utf-8">
@@ -11,55 +11,118 @@
   {{- 'theme.bundle.css' | asset_url | stylesheet_tag -}}
 
   {%- comment -%}
-    Make string translations and money formate available to scripts.
+  Detect what 'mode' the page is in. We cannot auto redirect under certain modes.
   {%- endcomment -%}
-  <script>
-    window.theme = {
-      strings: {
-        addToCart: {{ 'products.product.add_to_cart' | t | json }},
-        soldOut: {{ 'products.product.sold_out' | t | json }},
-        unavailable: {{ 'products.product.unavailable' | t | json }}
-      },
-      moneyFormat: {{ shop.money_format | json }}
-    };
-  </script>
+  {%- if request.design_mode -%}
+    {%- assign page_mode = "design" -%}
+  {%- elsif content_for_header contains "previewBarInjector.init();" -%}
+    {%- assign page_mode = "preview" -%}
+  {%- else -%}
+    {%- assign page_mode = "live" -%}
+  {%- endif -%}
 
-  {%- comment -%} Required for lazy-loading with Webpack on Shopify CDN {%- endcomment -%}
-  {%- capture randomFile -%}{{ 'theme.bundle.js' | asset_url }}{%- endcapture -%}
-  {%- assign assetsPath = randomFile | split: 'theme.bundle.js' | first -%}
   <script>window.__webpack_public_path__ = "{{ assetsPath }}"</script>
 
-  <link rel="preload" href="{{ 'theme.bundle.js' | asset_url }}" as="script">
+  {%- comment -%}
+  ## Headless router
 
-  {%- if template contains 'product' -%}
-    {{- 'product.bundle.css' | asset_url | stylesheet_tag -}}
-    <link rel="preload" href="{{ 'product.bundle.js' | asset_url }}" as="script">
-  {%- endif -%}
+  Re-route to the headless store by assigning the redirect path to `headless_redirect_path`.
 
-  {%- render 'social-meta-tags' -%}
+  If a path is not assigned to then we will render the liquid template.
+  {%- endcomment -%}
+  {%- case request.page_type -%}
+  {% when "404" %}
+  {% when "article" %}
+  {% when "blog" %}
+  {% when "cart" %}
+  {% assign headless_redirect_path = "/cart" %}
+  {% when "collection" %}
+  {% assign headless_redirect_path = "" %}
+  {% when "list-collections" %}
+  {% assign headless_redirect_path = "" %}
+  {% when "customers/account" %}
+  {% when "customers/activate_account" %}
+  {% when "customers/addresses" %}
+  {% when "customers/login" %}
+  {% when "customers/order" %}
+  {% when "customers/register" %}
+  {% when "customers/reset_password" %}
+  {% when "gift_card" %}
+  {% when "index" %}
+  {% assign headless_redirect_path = "" %}
+  {% when "page" %}
+  {% when "password" %}
+  {% when "product" %}
+  {% assign headless_redirect_path = "/products/" | append: handle %}
+  {% when "search" %}
+  {% assign headless_redirect_path = "" %}
+  {% else %}
+  {%- endcase -%}
 
-  {{ content_for_header }}
-</head>
-<body>
-  {%- section 'site-header' -%}
+  {%- assign headless_origin = settings.headless_origin -%}
+  {%- assign headless_redirect_base_url = settings.headless_redirect_base_url -%}
 
-  <main role="main">
-    {{ content_for_layout }}
-  </main>
-
-  {%- section 'site-footer' -%}
-
-  <aside id="app-cart"></aside>
-
-  {{ 'theme.bundle.js' | asset_url | script_tag }}
-  {%- if template contains 'product' -%}
-  {{ 'product.bundle.js' | asset_url | script_tag }}
-  {%- endif -%}
-
-  {% if template.directory == 'customers' %}
-  <script src="{{ 'shopify_common.js' | shopify_asset_url }}"></script>
-  {{ 'customers.bundle.js' | asset_url | script_tag }}
+  {%- comment -%} Construct the full headless path {%- endcomment -%}
+  {%- if headless_redirect_path and settings.headless_redirect_enabled == true -%}
+    {%- assign headless_redirect_url = headless_origin | append: headless_redirect_base_url | append: headless_redirect_path -%}
   {% endif %}
+
+  {%- comment -%}We attempt JS redirect, if that fails, then a meta redirect with a fallback to a link.{%- endcomment -%}
+  {%- if headless_redirect_url -%}
+    {%- if page_mode == "live" -%}
+      <meta content="noindex" name="robots">
+      <script>
+        (function (){
+          var href = {{ headless_redirect_url | json }};
+          if (window.location.search) {
+            href += window.location.search;
+          }
+          if (window.location.hash) {
+            href += window.location.hash;
+          }
+          window.location.href = href;
+        })();
+      </script>
+      <style>
+        #headless-manual-redirect {
+            opacity: 0;
+            animation: delayFadeIn 500ms;
+            animation-delay: 2s;
+            animation-fill-mode: forwards;
+        }
+
+        @keyframes delayFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+      </style>
+      <meta content="1;url={{ headless_redirect_url }}" http-equiv="refresh">
+    {%- endif -%}
+  {%- else -%}
+    {% comment %} Additional head for Theme Engine pages here... {% endcomment %}
+    {{ content_for_header }}
+  {%- endif -%}
+</head>
+<body class="site">
+  {%- if headless_redirect_url -%}
+    <div
+    id="headless-manual-redirect"
+    style="align-items: center; display: flex; flex-direction: column; height: 100vh; justify-content: center; width: 100%;">
+    <h1>{{ 'general.headless_redirect.title' | t }}</h1>
+    <p>
+      <a href="{{ headless_redirect_url }}">{{ 'general.headless_redirect.link' | t }}</a>
+    </p>
+    {%- if page_mode != "live" %}<em>auto-redirect from {{ headless_redirect_path }} to {{ headless_redirect_url }} skipped in {{ page_mode }} mode</em>{%- endif %}
+  </div>
+  {%- else -%}
+    {%- section 'site-header' -%}
+
+    <main role="main" class="site-content">
+      {{ content_for_layout }}
+    </main>
+
+    {%- section 'site-footer' -%}
+  {%- endif -%}
 
 </body>
 </html>

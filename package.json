@@ -8,7 +8,7 @@
     "deploy": "NODE_ENV=production webpack --mode=production && theme deploy --dir=theme",
     "theme-check": "theme-check ./theme/",
     "watch:assets": "webpack --watch",
-    "watch:theme": "theme watch --notify=theme-ready.tmp --dir=theme",
+    "watch:theme": "theme watch --notify=theme-ready.tmp --dir=theme --allow-live",
     "prod:build": "NODE_ENV=production webpack --env=analyze --mode=production",
     "prod:deploy": "NODE_ENV=production webpack --mode=production && theme deploy --env=production --dir=theme --allow-live"
   },

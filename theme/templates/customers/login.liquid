@@ -6,7 +6,7 @@
     </div>
 
     <div id="CustomerLoginForm">
-      <h2>{{ 'customer.login.title' | t }}</h2>
+      <h2 class="text-amber-200">{{ 'customer.login.title' | t }}</h2>
 
       {% form 'customer_login', class: 'form-vertical' %}
         {{ form.errors | default_errors }}
