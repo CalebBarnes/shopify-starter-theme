@@ -1,6 +1,46 @@
 <!doctype html>
-<html>
+<html class="antialiased text-gray-700" lang="{{ shop.locale }}">
 <head>
+
+  <script>
+    console.log(document.cookie)
+
+  </script>
+
+  {% if customer %}
+      
+  <script>
+    function setCookie(cName, cValue, expDays) {
+            let date = new Date();
+            date.setTime(date.getTime() + (expDays * 24 * 60 * 60 * 1000));
+            const expires = "expires=" + date.toUTCString();
+            document.cookie = cName + "=" + cValue + "; " + expires + "; path=/";
+    }
+
+    // Apply setCookie
+    setCookie('customer_email', "{{ customer.email }}", 30);
+
+    console.log('Customer is logged in. You can access the customer attributes such as {{ customer.first_name }}.')
+
+    console.log("{{ customer.id }}");
+    console.log("{{ customer.first_name }}");
+    console.log("{{ customer.last_name }}");
+    console.log("{{ customer.email }}");
+
+
+  </script>
+    {% else %}
+  {%- comment -%}
+  Customer is not logged in. Remove the custom customer cookies.
+  {%- endcomment -%}
+  
+  <script>
+    console.log(document.cookie)
+  document.cookie = "customer_email=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/";
+  </script>
+
+    {% endif %}
+  
   <title>{{ page_title }}</title>
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
